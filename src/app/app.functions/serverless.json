@@ -6,7 +6,7 @@
     },
     "supplierProxyV2": {
       "file": "v2/supplierProxyV2.js",
-      "secrets": []
+      "secrets": ["ABCClient", "ABCClientSecret", "SRSIDPROD", "SRSSECRETPROD", "beaconUsername", "beaconPass"]
     },
     "productSearchV2": {
       "file": "v2/productSearchV2.js",

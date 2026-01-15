@@ -15,11 +15,36 @@ exports.main = async (context = {}) => {
       body: receipt,
     };
   } catch (error) {
+    // Log full error for debugging
+    console.error("V2 SupplierProxy error:", error);
+    console.error("Error stack:", error.stack);
+    
+    // Return detailed error in receipt format
     return {
       statusCode: 500,
       body: {
-        error: error.message || "Supplier proxy failed",
+        id: "error-" + Date.now(),
+        timestamp: new Date().toISOString(),
         kind: "ERROR",
+        env: input.env || "",
+        supplierKey: input.supplierKey || "",
+        validation: {
+          ok: false,
+          errors: [{ path: "serverless", message: error.message }],
+        },
+        result: {
+          requestSucceeded: false,
+          requestErrors: [
+            {
+              code: "SERVERLESS_ERROR",
+              message: error.message || "Supplier proxy failed",
+            },
+          ],
+        },
+        raw: {
+          error: error.message,
+          stack: error.stack,
+        },
       },
     };
   }

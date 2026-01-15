@@ -10,7 +10,7 @@ try {
   getCredentials = credentialsModule.getCredentials;
 } catch (error) {
   // Fallback: use environment variables directly
-  console.log("V2: Using environment variables for credentials");
+  console.log("V2: Credentials system not found, will use environment variables or HubSpot secrets");
 }
 
 /**
@@ -35,8 +35,13 @@ function getSupplierConfig(supplierKey, env) {
       apiSiteId: credentials.apiSiteId,
     };
   } else {
-    // Fallback to env vars (simple stub for now)
-    return {
+    // Fallback: Try HubSpot secrets first, then env vars
+    // HubSpot serverless functions have access to secrets via context.secrets
+    // For now, use environment variables pattern
+    // Note: In HubSpot, secrets are accessed via context.secrets in serverless functions
+    // This will be passed through from the serverless function context
+    
+    const config = {
       environment: env,
       baseUrl: process.env[`${supplierKey}_BASE_URL_${env.toUpperCase()}`] || "",
       authUrl: process.env[`${supplierKey}_AUTH_URL_${env.toUpperCase()}`] || "",
@@ -46,6 +51,18 @@ function getSupplierConfig(supplierKey, env) {
       password: process.env[`${supplierKey}_PASSWORD_${env.toUpperCase()}`] || "",
       apiSiteId: process.env[`${supplierKey}_SITE_ID_${env.toUpperCase()}`] || "",
     };
+    
+    // If no credentials found, throw helpful error
+    if (!config.clientId && !config.username) {
+      throw new Error(
+        `V2: No credentials found for ${supplierKey} ${env}. ` +
+        `Please set up credentials in suppliers/config/getCredentials.js or set environment variables. ` +
+        `Required: ${supplierKey}_CLIENT_ID_${env.toUpperCase()} and ${supplierKey}_CLIENT_SECRET_${env.toUpperCase()} ` +
+        `(or ${supplierKey}_USERNAME_${env.toUpperCase()} and ${supplierKey}_PASSWORD_${env.toUpperCase()} for BEACON)`
+      );
+    }
+    
+    return config;
   }
 }
 

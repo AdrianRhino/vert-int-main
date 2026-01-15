@@ -24,7 +24,6 @@ hubspot.extend(({ context, runServerlessFunction, actions }) => (
 const Extension = ({ context, runServerless, sendAlert }) => {
   return (
     <>
-      <Heading>Vertical Integration Main</Heading>
       <ApiTestPageV2 context={context} runServerless={runServerless} />
     </>
   );
