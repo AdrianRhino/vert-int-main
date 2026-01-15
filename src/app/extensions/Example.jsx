@@ -35,7 +35,7 @@ const Extension = ({ context, runServerless, sendAlert }) => {
         <Text format={{ fontWeight: "bold" }}>
           Your first UI extension is ready!
         </Text>
-        Congratulations, {context.user.firstName}! You just deployed your first
+        Congratulations, {context.user.firstName}!! You just deployed your first
         HubSpot UI extension. This example demonstrates how you would send
         parameters from your React frontend to the serverless function and get a
         response back.
