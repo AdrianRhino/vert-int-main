@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@hubspot/ui-extensions": "^0.11.6"
+  }
+}
