@@ -9,7 +9,7 @@ import {
   Heading,
   hubspot,
 } from "@hubspot/ui-extensions";
-import ApiTestPageV2 from "../../v2/ui/ApiTestPageV2";
+
 
 // Define the extension to be run within the Hubspot CRM
 hubspot.extend(({ context, runServerlessFunction, actions }) => (
@@ -24,7 +24,7 @@ hubspot.extend(({ context, runServerlessFunction, actions }) => (
 const Extension = ({ context, runServerless, sendAlert }) => {
   return (
     <>
-      <ApiTestPageV2 context={context} runServerless={runServerless} />
+      <Text>Test</Text>
     </>
   );
 };
