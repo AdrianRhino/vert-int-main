@@ -9,7 +9,7 @@ import {
   Heading,
   hubspot,
 } from "@hubspot/ui-extensions";
-
+import V2Home from "./v2/ui/V2Home";
 
 // Define the extension to be run within the Hubspot CRM
 hubspot.extend(({ context, runServerlessFunction, actions }) => (
@@ -24,7 +24,7 @@ hubspot.extend(({ context, runServerlessFunction, actions }) => (
 const Extension = ({ context, runServerless, sendAlert }) => {
   return (
     <>
-      <Text>Test</Text>
+      <V2Home />
     </>
   );
 };
