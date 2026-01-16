@@ -43,10 +43,30 @@ export default function V2Home() {
   }, [receipt]);
 
   function setField(name, value) {
-    setWizard((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setWizard((prev) => {
+      const next = { ...prev };
+  
+      // Invariant: env is always sandbox/prod
+      if (name === "env") {
+        next.env = value === "prod" ? "prod" : "sandbox";
+  
+        // If we leave prod, relock it (prevents weird stale unlock state)
+        if (next.env !== "prod") {
+          next.liveOrder = false;
+          next.confirmationText = "";
+        }
+        return next;
+      }
+  
+      // Invariant: liveOrder is always a real boolean
+      if (name === "liveOrder") {
+        next.liveOrder = value === true;
+        return next;
+      }
+  
+      next[name] = value;
+      return next;
+    });
   }
 
   function goNext() {
@@ -54,7 +74,7 @@ export default function V2Home() {
 
     setWizard((prev) => ({
       ...prev,
-      step: Math.min(prev.step + 1, 2),
+      step: Math.min(prev.step + 1, 6),
     }));
   }
 

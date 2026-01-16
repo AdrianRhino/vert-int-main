@@ -24,7 +24,7 @@ hubspot.extend(({ context, runServerlessFunction, actions }) => (
 const Extension = ({ context, runServerless, sendAlert }) => {
   return (
     <>
-      <V2Home />
+      <V2Home runServerless={runServerless} />
     </>
   );
 };

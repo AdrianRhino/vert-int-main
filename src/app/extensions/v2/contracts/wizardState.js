@@ -3,10 +3,14 @@ export function makeWizardState() {
         step: 1,
         orderType: "",
         supplierKey: "",
-        template: "",
+        templateId: "",
         ticketId: "",
-        env: "",
+        env: "sandbox", // "sandbox" | "prod"
         liveOrder: false,
         confirmationText: "",
+        searchText: "",
+        searchResults: [],
+        searchError: "",
+        isSearching: false,
     };
 }
