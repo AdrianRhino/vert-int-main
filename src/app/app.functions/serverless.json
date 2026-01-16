@@ -3,7 +3,6 @@
     "myFunc": {
       "file": "example-function.js",
       "secrets": []
-    },
-    
+    }
   }
 }
