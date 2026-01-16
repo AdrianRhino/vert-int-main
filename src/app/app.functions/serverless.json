@@ -4,25 +4,6 @@
       "file": "example-function.js",
       "secrets": []
     },
-    "supplierProxyV2": {
-      "file": "v2/supplierProxyV2.js",
-      "secrets": ["ABCClient", "ABCClientSecret", "SRSIDPROD", "SRSSECRETPROD", "beaconUsername", "beaconPass"]
-    },
-    "productSearchV2": {
-      "file": "v2/productSearchV2.js",
-      "secrets": []
-    },
-    "hubspotDraftV2": {
-      "file": "v2/hubspotDraftV2.js",
-      "secrets": ["HUBSPOT_API_KEY2"]
-    },
-    "submitOrderPipelineV2": {
-      "file": "v2/submitOrderPipelineV2.js",
-      "secrets": ["HUBSPOT_API_KEY2"]
-    },
-    "getDebugReceiptsV2": {
-      "file": "v2/getDebugReceiptsV2.js",
-      "secrets": []
-    }
+    
   }
 }
