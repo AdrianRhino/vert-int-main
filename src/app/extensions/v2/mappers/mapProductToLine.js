@@ -1,7 +1,7 @@
 import { mapSrsProductToLine } from "./mapSrsProductToLine";
 import { mapAbcProductToLine } from "./mapAbcProductToLine";
 import { mapBeaconProductToLine } from "./mapBeaconProductToLine";
-import { normalizeLine, cleanText, toNumber } from "../normalize/normalizeLine";
+import { normalizeLine } from "../normalize/normalizeLine";
 
 export function mapProductToLine(row) {
     const supplier = String(row.supplier || row.supplierKey || "").toUpperCase();

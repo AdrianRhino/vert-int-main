@@ -1,7 +1,9 @@
+import { cleanText, safeArray, toNumber } from "./helpers";
+
 export function normalizeLine(line) {
     const out = { ...line };
 
-    outSupplierKey = cleanText(out.supplierKey).toUpperCase();
+    out.SupplierKey = cleanText(out.supplierKey).toUpperCase();
     out.sku = cleanText(out.sku);
     out.title = cleanText(out.title);
 

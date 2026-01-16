@@ -12,5 +12,7 @@ export function makeWizardState() {
         searchResults: [],
         searchError: "",
         isSearching: false,
+        lines: [],
+        pricing: null, // { priced: boolean, reasons: [] }
     };
 }

@@ -1,5 +1,6 @@
 import { makeEmptyLine } from "../normalize/canonicalLine";
-import { normalizeLine, cleanText, safeArray } from "../normalize/normalizeLine";
+import { normalizeLine} from "../normalize/normalizeLine";
+import { cleanText, safeArray } from "../normalize/helpers";
 
 export function mapSrsProductToLine(row) {
  const line = makeEmptyLine();

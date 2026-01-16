@@ -3,9 +3,11 @@ import { Text, Select, Input, Button, Divider } from "@hubspot/ui-extensions";
 import { makeReceipt, addStep } from "../contracts/receipt";
 import { makeWizardState } from "../contracts/wizardState";
 import { getMissingFields } from "../contracts/requirements";
+import { mapProductToLine } from "../mappers/mapProductToLine";
 
-export default function V2Home() {
+export default function V2Home({ runServerless }) {
   const [wizard, setWizard] = useState(() => makeWizardState());
+  const [actionSteps, setActionSteps] = useState([]);
 
   const missing = useMemo(() => {
     return getMissingFields(wizard.step, wizard);
@@ -34,9 +36,13 @@ export default function V2Home() {
         ? (wizard.env === "prod" ? "Prod unlocked." : "Sandbox is safe.")
         : "Prod locked: set liveOrder and type PLACE LIVE ORDER."
     );
+
+    for (const step of actionSteps) {
+      addStep(r, step.name, step.ok, step.why);
+    }
   
     return r;
-  }, [wizard, missing]);
+  }, [wizard, missing, actionSteps]);
   
   useEffect(() => {
     console.log(JSON.stringify(receipt, null, 2));
@@ -94,6 +100,123 @@ export default function V2Home() {
     if (String(state.confirmationText).trim() !== "PLACE LIVE ORDER") return false;
     return true;
   }
+
+  async function searchProducts() {
+    if (!runServerless) return;
+
+    setWizard((prev) => ({
+        ...prev,
+        isSearching: true,
+        searchError: "",
+        searchResults: [],
+    }));
+
+    try {
+        const resp = await runServerless({
+            name: "supplierProducts",
+            parameters: {
+                supplierKey: wizard.supplierKey,
+                query: wizard.searchText,
+            },
+        });
+
+        const results = 
+            resp?.response?.body?.results || 
+            resp?.body?.results || 
+            [];
+
+            setWizard((prev) => ({
+                ...prev,
+                isSearching: false,
+                searchResults: results,
+            }))
+        } catch (error) {
+            setWizard((prev) => ({
+                ...prev,
+                isSearching: false,
+                searchError: error.message || "Search failed",
+            }));
+        }
+        setActionSteps([{ name: "SUPABASE_LOOKUP", ok: true, why: "Fetched search results." }]);
+
+    }
+
+    function getRowTitle(row) {
+        return row.title || row.productName || row.product_name || row.familyName || row.family_name || row.baseProductName || row.base_product_name || row.name || row.description || row.itemdescription || row.item_description || row.marketingDescription || row.marketing_description || row.productDescription || row.product_description || "";
+    }
+    function getRowSku(row) {
+        return row.sku || row.itemnumber || row.itemNumber || row.productCode || "";
+    }
+
+    function addResultToCart(row) {
+        // Ensure row includes supplier for routing
+        const rowWithSupplier = {
+            ...row,
+            supplier: row.supplier || wizard.supplierKey.toLowerCase(),
+            sku: getRowSku(row),
+            title: getRowTitle(row),
+        };
+
+        const line = mapProductToLine(rowWithSupplier);
+
+        setWizard((prev) => ({
+            ...prev,
+            lines: [...(prev.lines || []), line],
+        }));
+
+        setActionSteps([{ name: "NORMALIZE_LINES", ok: true, why: "Mapped product row into canonical line item." }]);
+
+    }
+
+    function removeLine(lineId) {
+        setWizard((prev) => ({
+            ...prev,
+            lines: prev.lines.filter((line) => line.lineId !== lineId),
+        }));
+    }
+
+    async function getPricing() {
+        if (!runServerless) return;
+
+        // basic check: need lines
+        if (!wizard.lines || wizard.lines.length === 0) {
+            setWizard((prev) => ({
+                 ...prev,
+                 pricing: { priced: false, reasons: ["NO_LINES"]}
+            }))
+            return;
+        }
+
+        const resp = await runServerless({
+            name: "supplierProxy",
+            parameters: {
+                supplierKey: wizard.supplierKey,
+                action: "price",
+                payload: {
+                    lines: wizard.lines,
+                    context: {
+                        ticketId: wizard.ticketId,
+                        templateId: wizard.templateId,
+                }
+            }
+        },
+        });
+     const body = resp?.response?.body || resp?.body || resp;
+
+     const priced = body?.priced === true;
+     const reasons = Array.isArray(body?.reasons) ? body?.reasons : [];
+
+     setWizard((prev) => ({
+        ...prev,
+        pricing: { priced, reasons },
+     }));
+
+     setActionSteps([
+        { name: "SUPPLIER_PRICING_CALL", ok: true, why: "Called supplierProxy price action." },
+        { name: "INTERPRET_PRICING", ok: true, why: "Converted response into priced + reasons." },
+        { name: "RECEIPT_OUTPUT", ok: true, why: "Receipt shown in UI." }
+      ]);
+    }
 
   return (
     <>
@@ -181,6 +304,60 @@ export default function V2Home() {
           </Text>
         </>
       )}
+
+      {wizard.step === 3 && (
+        <> <Text>Step 3 - Add Products</Text>
+        <Input
+      label="Search"
+      value={wizard.searchText}
+      onChange={(value) => setField("searchText", value)}
+    />
+
+    <Button onClick={searchProducts} disabled={wizard.isSearching}>
+      {wizard.isSearching ? "Searching..." : "Search"}
+    </Button>
+
+    {wizard.searchError && <Text>Search error: {wizard.searchError}</Text>}
+
+    <Text>Results</Text>
+        {(wizard.searchResults || []).map((row, idx) => (
+            <React.Fragment key={idx}>
+                <Text>{row.title} - {row.sku}</Text>
+                <Button onClick={() => addResultToCart(row)}>Add</Button>
+                <Text></Text>
+            </React.Fragment>
+        ))}
+
+        <Text>Cart</Text>
+        {(wizard.lines || []).length === 0 && <Text>(Empty)</Text>}
+
+        {(wizard.lines || []).map((line, idx) => (
+            <Text key={idx}>
+                {line.title} - {line.sku} ({line.quantity} {line.uom})
+            </Text>
+        ))}
+        </>
+      )}
+
+      {wizard.step === 4 && (
+        <>
+        <Text>Step 4 - Pricing</Text>
+        <Text>Lines</Text>
+        {(wizard.lines || []).map((line,idx) => (
+            <Text key={idx}>{line.title} - {line.sku} ({line.quantity} {line.uom})</Text>
+        ))}
+
+        <Button onClick={getPricing}>Get Pricing</Button>
+
+        {wizard.pricing && (
+            <>
+            <Text>Pricing Status: {wizard.pricing.priced ? "Priced" : "Not Priced"}</Text>
+            <Text>Reasons: {wizard.pricing.reasons?.join(", ")}</Text>
+            </>
+        )}
+        </>
+      )}
+
       <Button onClick={goBack} disabled={backDisabled}>Back</Button>
       <Button onClick={goNext} variant="primary" disabled={nextDisabled}>Next</Button>
     </>
