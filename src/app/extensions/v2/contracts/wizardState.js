@@ -5,7 +5,7 @@ export function makeWizardState() {
         supplierKey: "",
         template: "",
         ticketId: "",
-        env: "sandbox",
+        env: "",
         liveOrder: false,
         confirmationText: "",
     };

@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect, useState } from "react";
-import { Text, Select, Input, Button } from "@hubspot/ui-extensions";
+import { Text, Select, Input, Button, Divider } from "@hubspot/ui-extensions";
 import { makeReceipt, addStep } from "../contracts/receipt";
 import { makeWizardState } from "../contracts/wizardState";
 import { getMissingFields } from "../contracts/requirements";
@@ -12,9 +12,10 @@ export default function V2Home() {
   }, [wizard]);
 
   const receipt = useMemo(() => {
-    const r = makeReceipt("V2_WIZARD", "sandbox");
-    addStep(r, "RENDER_PAGE", true, "V2 wizard page endered successfully.");
-
+    const r = makeReceipt("V2_WIZARD", wizard.env);
+  
+    addStep(r, "RENDER_PAGE", true, "V2 wizard page rendered successfully.");
+  
     addStep(
       r,
       "VALIDATE_STEP_REQUIREMENTS",
@@ -23,8 +24,19 @@ export default function V2Home() {
         ? "All required fields present."
         : "Missing: " + missing.join(", ")
     );
+  
+    const unlocked = isProdUnlocked(wizard);
+    addStep(
+      r,
+      "SAFETY_LATCH",
+      unlocked,
+      unlocked
+        ? (wizard.env === "prod" ? "Prod unlocked." : "Sandbox is safe.")
+        : "Prod locked: set liveOrder and type PLACE LIVE ORDER."
+    );
+  
     return r;
-  }, [missing]);
+  }, [wizard, missing]);
   
   useEffect(() => {
     console.log(JSON.stringify(receipt, null, 2));
@@ -56,6 +68,13 @@ export default function V2Home() {
   const nextDisabled = missing.length > 0;
   const backDisabled = wizard.step === 1;
 
+  function isProdUnlocked(state) {
+    if (state.env !== "prod") return true;
+    if (state.liveOrder !== true) return false;
+    if (String(state.confirmationText).trim() !== "PLACE LIVE ORDER") return false;
+    return true;
+  }
+
   return (
     <>
       {wizard.step === 1 && (
@@ -77,6 +96,38 @@ export default function V2Home() {
 
       {wizard.step === 2 && (
         <>
+        <Text>Environment</Text>
+        <Select
+            label="Environment"
+            options={[
+                { label: "Sandbox", value: "sandbox" },
+                { label: "Production", value: "prod" },
+            ]}
+            value={wizard.env}
+            onChange={(value) => setField("env", value)}
+        />
+        <Text></Text>
+            {wizard.env === "prod" && (
+                <>
+                <Text>⚠️ Production is locked by default.</Text>
+                <Select
+                    label="I understand this is live"
+                    options={[
+                        { label: "Yes", value: true },
+                        { label: "No", value: false },
+                    ]}
+                    value={wizard.liveOrder}
+                    onChange={(value) => setField("liveOrder", value)}
+                />
+                <Text>Confirmation Text</Text>
+                <Input
+                    label={`Type 'PLACE LIVE ORDER' to unlock`}
+                    value={wizard.confirmationText}
+                    onChange={(value) => setField("confirmationText", value)}
+                />
+                <Divider />
+                </>
+            )}
           <Text>Step 2 - Choose Supplier</Text>
           <Select
             label="Supplier"
