@@ -1,9 +1,10 @@
 exports.main = async (context = {}) => {
     try {
         const params = context.parameters || {};
-        const supplierKey = params.supp;ierKey || "";
+        const supplierKey = params.supplierKey || "";
         const env = params.env || "sandbox";
         const fullOrder = params.fullOrder || {};
+        
 
         // Stub: return  a fake supplier order id
         return {
@@ -13,7 +14,8 @@ exports.main = async (context = {}) => {
                 supplierKey,
                 env,
                 supplierOrderId: "SUP_" + Date.now(),
-                lineCount: Array.isArray(fullOrder.lines) ? fullOrder.lines.length : 0,
+                allowProd: makeWizardState.env === "prod" && isProdUnlocked(wizard),
+        confirmationText: wizard.confirmationText,
             }
         }
     } catch (error) {

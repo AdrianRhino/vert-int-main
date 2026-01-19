@@ -1,3 +1,5 @@
+import { CAPABILITIES } from "./capabilities";
+
 export function getMissingFields(step, state) {
   const missing = [];
 
@@ -17,8 +19,16 @@ export function getMissingFields(step, state) {
   }
 
   if (step === 4) {
-    if (!state.pricing) missing.push("pricing");
+   const supplierKey = state.supplierKey || "";
+   const requires = CAPABILITIES[supplierKey]?.pricing?.requires || [];
+   const ctx = state.context || {};
+
+   for (const key of requires) {
+    if (!String(ctx[key] || "").trim()) missing.push("context." + key);
   }
+
+  if (!state.pricing) missing.push("pricing");
+}
 
   if (step === 5) {
     if (!state.hubspot || state.hubspot.ok !== true) missing.push("hubspot.ok");

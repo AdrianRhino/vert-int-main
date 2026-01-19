@@ -107,7 +107,7 @@ export default function V2Home({ runServerless }) {
     !pricingOk ||
     (wizard.env === "prod" && !prodUnlocked);
 
-    const pricingContextReqs = getRequirementsFor(wizard.supplierKey, "pricing");
+    const pricingContextReqs = CAPABILITIES[wizard.supplierKey]?.pricing?.requires || [];
 
   function isProdUnlocked(state) {
     if (state.env !== "prod") return true;
@@ -216,6 +216,7 @@ export default function V2Home({ runServerless }) {
                     context: {
                         ticketId: wizard.ticketId,
                         templateId: wizard.templateId,
+                        supplierContext: wizard.context || {},
                 }
             }
         },
@@ -243,7 +244,7 @@ export default function V2Home({ runServerless }) {
         
           setActionSteps([
             { name: "SUPPLIER_PRICING_CALL", ok: false, why: error?.message || "Pricing call failed." },
-            { name: "RECEIPT_OUTPUT", ok: false, why: "Receipt shown in UI." },
+            { name: "RECEIPT_OUTPUT", ok: true, why: "Receipt shown in UI." },
           ]);
         }
 
@@ -260,6 +261,7 @@ export default function V2Home({ runServerless }) {
         lines: wizard.lines || [],
         pricing: wizard.pricing || null,
         hubspot: wizard.hubspot || null,
+        context: wizard.context || {},
       }
     }
 
@@ -270,7 +272,7 @@ export default function V2Home({ runServerless }) {
         const fullOrder = buildDraftPayload();
 
         const resp = await runServerless({
-          name: "saveDraftToHubSpot",
+          name: "saveDraftToHubspot",
           parameters: {
             dealId: wizard.ticketId,
             fullOrder,
@@ -304,7 +306,7 @@ export default function V2Home({ runServerless }) {
 
         setActionSteps([
           { name: "HUBSPOT_DRAFT_SAVE", ok: false, why: error?.message || "Failed to save draft." },
-          { name: "RECEIPT_OUTPUT", ok: false, why: "Receipt shown in UI." }
+          { name: "RECEIPT_OUTPUT", ok: true, why: "Receipt shown in UI." }
         ]);
       }
     }
@@ -367,8 +369,8 @@ export default function V2Home({ runServerless }) {
 
         // 3) Update Hubspot status
         const r3 = await runServerless({
-          name: "updateHubSpotStatus",
-          parameteres: {
+          name: "updateHubspotStatus",
+          parameters: {
             dealId: wizard.ticketId,
             orderId: wizard.hubspot?.orderId,
             status: "SUBMITTED",
@@ -477,6 +479,31 @@ export default function V2Home({ runServerless }) {
             onChange={(value) => setField("supplierKey", value)}
           />
 
+          <Text>Supplier Context</Text>
+          {pricingContextReqs.includes("branchId") && (
+            <Input 
+            label="Branch ID" 
+            value={wizard.context.branchId || ""} 
+            onChange={(value) => setField("context", { ...wizard.context, branchId: value })} 
+            />
+          )}
+
+          {pricingContextReqs.includes("shipTo") && (
+            <Input
+            label="Ship To ID"
+            value={wizard.context.shipTo || ""}
+            onChange={(value) => setField("context", { ...wizard.context, shipTo: value })}
+            />
+          )}
+
+          {pricingContextReqs.includes("accountId") && (
+            <Input
+            label="Account ID"
+            value={wizard.context.accountId || ""}
+            onChange={(value) => setField("context", { ...wizard.context, accountId: value })}
+            />
+          )}
+
           <Text>Template ID </Text>
           <Input
             label="Template ID"
@@ -516,7 +543,7 @@ export default function V2Home({ runServerless }) {
     <Text>Results</Text>
         {(wizard.searchResults || []).map((row, idx) => (
             <React.Fragment key={idx}>
-                <Text>{row.title} - {row.sku}</Text>
+                <Text>{getRowTitle(row)} - {getRowSku(row)}</Text>
                 <Button onClick={() => addResultToCart(row)}>Add</Button>
                 <Text></Text>
             </React.Fragment>
