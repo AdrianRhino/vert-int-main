@@ -137,8 +137,12 @@ export default function V2Home({ runServerless }) {
                 searchError: error.message || "Search failed",
             }));
         }
-        setActionSteps([{ name: "SUPABASE_LOOKUP", ok: true, why: "Fetched search results." }]);
 
+        try {
+  setActionSteps([{ name: "SUPABASE_LOOKUP", ok: true, why: "Fetched search results." }]);
+        } catch (error) {
+          setActionSteps([{ name: "SUPABASE_LOOKUP", ok: false, why: error.message || "Failed to fetch search results." }]);
+        }
     }
 
     function getRowTitle(row) {
@@ -168,10 +172,10 @@ export default function V2Home({ runServerless }) {
 
     }
 
-    function removeLine(lineId) {
+    function removeLineAtIndex(indexToRemove) {
         setWizard((prev) => ({
             ...prev,
-            lines: prev.lines.filter((line) => line.lineId !== lineId),
+            lines: (prev.lines || []).filter((_, idx) => idx !== indexToRemove),
         }));
     }
 
@@ -187,10 +191,12 @@ export default function V2Home({ runServerless }) {
             return;
         }
 
-        const resp = await runServerless({
+        try {
+          const resp = await runServerless({
             name: "supplierProxy",
             parameters: {
                 supplierKey: wizard.supplierKey,
+                env: wizard.env,
                 action: "price",
                 payload: {
                     lines: wizard.lines,
@@ -208,7 +214,7 @@ export default function V2Home({ runServerless }) {
 
      setWizard((prev) => ({
         ...prev,
-        pricing: { priced, reasons },
+        pricing: { ok: true,priced, reasons },
      }));
 
      setActionSteps([
@@ -216,6 +222,78 @@ export default function V2Home({ runServerless }) {
         { name: "INTERPRET_PRICING", ok: true, why: "Converted response into priced + reasons." },
         { name: "RECEIPT_OUTPUT", ok: true, why: "Receipt shown in UI." }
       ]);
+        } catch (error) {
+          setWizard((prev) => ({
+            ...prev,
+            pricing: { ok: false, priced: false, reasons: ["PRICING_CALL_FAILED"] },
+          }));
+        
+          setActionSteps([
+            { name: "SUPPLIER_PRICING_CALL", ok: false, why: e?.message || "Pricing call failed." },
+            { name: "RECEIPT_OUTPUT", ok: true, why: "Receipt shown in UI." },
+          ]);
+        }
+
+       
+    }
+
+    function buildDraftPayload() {
+      return {
+        orderType: wizard.orderType,
+        supplierKey: wizard.supplierKey,
+        env: wizard.env,
+        templateId: wizard.templateId,
+        ticketId: wizard.ticketId,
+        lines: wizard.lines || [],
+        pricing: wizard.pricing || null,
+        hubspot: wizard.hubspot || null,
+      }
+    }
+
+    async function saveDraft() {
+      if (!runServerless) return;
+
+      try {
+        const fullOrder = buildDraftPayload();
+
+        const resp = await runServerless({
+          name: "saveDraftToHubspot",
+          parameters: {
+            dealId: wizard.ticketId,
+            fullOrder,
+          },
+        });
+
+        const body = resp?.response?.body || resp?.body || resp;
+
+        setWizard((prev) => ({
+          ...prev,
+          hubspot: {
+            ok: body?.ok === true,
+            orderId: body?.orderId || "",
+            status: body?.ok ? "DRAFT_SAVED" : "FAILED",
+          }
+        }));
+
+        setActionSteps([
+          { name: "HUBSPOT_DRAFT_SAVE", ok: body?.ok === true, why: body?.ok ? "Draft saved to Hubspot." : "Failed to save draft." },
+          { name: "RECEIPT_OUTPUT", ok: true, why: "Receipt shown in UI." }
+        ]);
+      } catch (error) {
+        setWizard((prev) => ({
+          ...prev,
+          hubspot: {
+            ok: false,
+            orderId: "",
+            status: "FAILED",
+          }
+        }));
+
+        setActionSteps([
+          { name: "HUBSPOT_DRAFT_SAVE", ok: false, why: error?.message || "Failed to save draft." },
+          { name: "RECEIPT_OUTPUT", ok: false, why: "Receipt shown in UI." }
+        ]);
+      }
     }
 
   return (
@@ -332,9 +410,12 @@ export default function V2Home({ runServerless }) {
         {(wizard.lines || []).length === 0 && <Text>(Empty)</Text>}
 
         {(wizard.lines || []).map((line, idx) => (
-            <Text key={idx}>
+            <React.Fragment key={idx}>
+            <Text>
                 {line.title} - {line.sku} ({line.quantity} {line.uom})
             </Text>
+            <Button onClick={() => removeLineAtIndex(idx)}>Remove</Button>
+            </React.Fragment>
         ))}
         </>
       )}
@@ -355,6 +436,14 @@ export default function V2Home({ runServerless }) {
             <Text>Reasons: {wizard.pricing.reasons?.join(", ")}</Text>
             </>
         )}
+        </>
+      )}
+
+      {wizard.step === 5 && (
+        <>
+        <Text>Step 5 - Save Draft</Text>
+        <Button onClick={saveDraft} variant="primary">Save as Draft</Button>
+        <Text>Hubspot Status: {wizard.hubspot.status || "(none)"} | orderId: {wizard.hubspot?.orderId || "(none)"}</Text>
         </>
       )}
 

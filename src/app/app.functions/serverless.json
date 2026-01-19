@@ -11,6 +11,10 @@
     "supplierProxy": {
       "file": "supplierProxy/supplierProxy.js",
       "secrets": []
+    },
+    "saveDraftToHubspot": {
+      "file": "v2/hubspot/saveDraftToHubspot.js",
+      "secrets": []
     }
   }
   }

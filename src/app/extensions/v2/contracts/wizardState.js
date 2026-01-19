@@ -14,5 +14,6 @@ export function makeWizardState() {
         isSearching: false,
         lines: [],
         pricing: null, // { priced: boolean, reasons: [] }
+        hubspot: { ok:false, orderId:"", status:"" }
     };
 }

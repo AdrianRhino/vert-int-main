@@ -11,5 +11,18 @@ export function getMissingFields(step, state) {
     if (!state.ticketId) missing.push("ticketId");
   }
 
+  if (step === 3) {
+    const lines = state.lines || [];
+    if (lines.length === 0) missing.push("cartLines");
+  }
+
+  if (step === 4) {
+    if (!state.pricing) missing.push("pricing");
+  }
+
+  if (step === 5) {
+    if (!state.hubspot || state.hubspot.ok !== true) missing.push("hubspot.ok");
+  }
+
   return missing;
 }
