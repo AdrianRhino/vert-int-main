@@ -4,6 +4,7 @@ import { makeReceipt, addStep } from "../contracts/receipt";
 import { makeWizardState } from "../contracts/wizardState";
 import { getMissingFields } from "../contracts/requirements";
 import { mapProductToLine } from "../mappers/mapProductToLine";
+import { CAPABILITIES } from "../contracts/capabilities";
 
 export default function V2Home({ runServerless }) {
   const [wizard, setWizard] = useState(() => makeWizardState());
@@ -91,8 +92,22 @@ export default function V2Home({ runServerless }) {
     }));
   }
 
+  // Booleans
+
   const nextDisabled = missing.length > 0;
   const backDisabled = wizard.step === 1;
+
+  const pricingOk = wizard.pricing && wizard.pricing?.ok === true;
+  const hubspotOk = wizard.hubspot && wizard.hubspot?.ok === true;
+
+  const prodUnlocked = isProdUnlocked(wizard);
+
+  const submitDisabled =
+    !hubspotOk ||
+    !pricingOk ||
+    (wizard.env === "prod" && !prodUnlocked);
+
+    const pricingContextReqs = getRequirementsFor(wizard.supplierKey, "pricing");
 
   function isProdUnlocked(state) {
     if (state.env !== "prod") return true;
@@ -130,18 +145,16 @@ export default function V2Home({ runServerless }) {
                 isSearching: false,
                 searchResults: results,
             }))
+
+            setActionSteps([{ name: "SUPABASE_LOOKUP", ok: true, why: "Fetched search results." }]);
         } catch (error) {
             setWizard((prev) => ({
                 ...prev,
                 isSearching: false,
                 searchError: error.message || "Search failed",
             }));
-        }
 
-        try {
-  setActionSteps([{ name: "SUPABASE_LOOKUP", ok: true, why: "Fetched search results." }]);
-        } catch (error) {
-          setActionSteps([{ name: "SUPABASE_LOOKUP", ok: false, why: error.message || "Failed to fetch search results." }]);
+            setActionSteps([{ name: "SUPABASE_LOOKUP", ok: false, why: error.message || "Failed to fetch search results." }]);
         }
     }
 
@@ -186,7 +199,7 @@ export default function V2Home({ runServerless }) {
         if (!wizard.lines || wizard.lines.length === 0) {
             setWizard((prev) => ({
                  ...prev,
-                 pricing: { priced: false, reasons: ["NO_LINES"]}
+                 pricing: { ok: false, priced: false, reasons: ["NO_LINES"]}
             }))
             return;
         }
@@ -229,8 +242,8 @@ export default function V2Home({ runServerless }) {
           }));
         
           setActionSteps([
-            { name: "SUPPLIER_PRICING_CALL", ok: false, why: e?.message || "Pricing call failed." },
-            { name: "RECEIPT_OUTPUT", ok: true, why: "Receipt shown in UI." },
+            { name: "SUPPLIER_PRICING_CALL", ok: false, why: error?.message || "Pricing call failed." },
+            { name: "RECEIPT_OUTPUT", ok: false, why: "Receipt shown in UI." },
           ]);
         }
 
@@ -257,7 +270,7 @@ export default function V2Home({ runServerless }) {
         const fullOrder = buildDraftPayload();
 
         const resp = await runServerless({
-          name: "saveDraftToHubspot",
+          name: "saveDraftToHubSpot",
           parameters: {
             dealId: wizard.ticketId,
             fullOrder,
@@ -292,6 +305,109 @@ export default function V2Home({ runServerless }) {
         setActionSteps([
           { name: "HUBSPOT_DRAFT_SAVE", ok: false, why: error?.message || "Failed to save draft." },
           { name: "RECEIPT_OUTPUT", ok: false, why: "Receipt shown in UI." }
+        ]);
+      }
+    }
+
+    async function submitOrder() {
+      if (!runServerless) return;
+
+      // hard gate (extra safety)
+      if (!wizard.hubspot?.ok) return;
+      if (!(wizard.pricing && wizard.pricing.ok === true)) return;
+      if (wizard.env === "prod" && !isProdUnlocked(wizard)) return;
+
+      setActionSteps([{ name: "SUBMIT_START", ok: true, why: "Starting order submission." }]);
+
+      setWizard((prev) => ({
+        ...prev,
+        isSubmitting: true,
+        submitError: "",
+        submit: null,
+      }))
+
+      const fullOrder = buildDraftPayload();
+
+      try {
+        const r1 = await runServerless({
+          name: "sendOrderToSupplier",
+          parameters: {
+            supplierKey: wizard.supplierKey,
+            env: wizard.env,
+            fullOrder,
+          },
+        });
+        
+        const b1 = r1?.response?.body || r1?.body || r1;
+        if (!b1?.ok) throw new Error(b1?.error || "Failed to send order to supplier.");
+
+        setActionSteps([
+          { name: "SUBMIT_START", ok: true, why: "Submit started." },
+          { name: "SUPPLIER_ORDER_CALL", ok: true, why: "Supplier order created: " + b1.supplierOrderId },
+        ])
+
+        // 2) Generate/upload PDF
+        const r2 = await runServerless({
+          name: "generateAndUploadOrderPDF",
+          parameters: {
+            env: wizard.env,
+            dealId: wizard.ticketId,
+            supplierOrderId: b1.supplierOrderId,
+          },
+        });
+
+        const b2 = r2?.response?.body || r2?.body || r2;
+        if (!b2?.ok) throw new Error(b2?.error || "PDF generation/upload failed.");
+
+        setActionSteps([
+          { name: "SUBMIT_START", ok: true, why: "Submit started." },
+          { name: "SUPPLIER_ORDER_CALL", ok: true, why: "Supplier order created: " + b1.supplierOrderId },
+          { name: "PDF_GENERATE_UPLOAD", ok: true, why: "PDF created: " + b2.pdfUrl },
+        ])
+
+        // 3) Update Hubspot status
+        const r3 = await runServerless({
+          name: "updateHubSpotStatus",
+          parameteres: {
+            dealId: wizard.ticketId,
+            orderId: wizard.hubspot?.orderId,
+            status: "SUBMITTED",
+          }
+        });
+
+        const b3 = r3?.response?.body || r3?.body || r3;
+        if (!b3?.ok) throw new Error(b3?.error || "HubSpot update failed");
+
+        // Final State
+        setWizard((prev) => ({
+          ...prev,
+          isSubmitting: false,
+          submit: {
+            ok: true,
+            supplierOrderId: b1.supplierOrderId,
+            pdfUrl: b2.pdfUrl,
+            hubspotStatus: b3.hubspotStatus,
+          },
+        }));
+
+        setActionSteps([
+          { name: "SUBMIT_START", ok: true, why: "Submit started." },
+          { name: "SUPPLIER_ORDER_CALL", ok: true, why: "Supplier order created: " + b1.supplierOrderId },
+          { name: "PDF_GENERATE_UPLOAD", ok: true, why: "PDF created: " + b2.pdfUrl },
+          { name: "HUBSPOT_STATUS_UPDATE", ok: true, why: "HubSpot status updated to SUBMITTED." },
+          { name: "SUBMIT_DONE", ok: true, why: "Submit complete."}
+        ]);
+      } catch (error) {
+        setWizard((prev) => ({
+          ...prev,
+          isSubmitting: false,
+          submitError: error?.message || "Submit failed.",
+          submit: { ok: false },
+        }));
+
+        setActionSteps([
+          { name: "SUBMIT_START", ok: true, why: "Submit started." },
+          { name: "SUBMIT_DONE", ok: false, why: error?.message || "Submit failed." },
         ]);
       }
     }
@@ -446,6 +562,33 @@ export default function V2Home({ runServerless }) {
         <Text>Hubspot Status: {wizard.hubspot.status || "(none)"} | orderId: {wizard.hubspot?.orderId || "(none)"}</Text>
         </>
       )}
+
+{wizard.step === 6 && (
+  <>
+    <Text>Step 6 - Submit</Text>
+
+    {wizard.env === "prod" && !prodUnlocked && (
+      <Text>Prod is locked. Unlock required to submit.</Text>
+    )}
+
+    {!pricingOk && <Text>Pricing must succeed before submit.</Text>}
+    {!wizard.hubspot?.ok && <Text>Draft must be saved before submit.</Text>}
+
+    <Button onClick={submitOrder} variant="primary" disabled={submitDisabled || wizard.isSubmitting}>
+      {wizard.isSubmitting ? "Submitting..." : "Submit Order"}
+    </Button>
+
+    {wizard.submitError && <Text>Submit error: {wizard.submitError}</Text>}
+
+    {wizard.submit?.ok && (
+      <>
+        <Text>Supplier Order ID: {wizard.submit.supplierOrderId}</Text>
+        <Text>PDF URL: {wizard.submit.pdfUrl}</Text>
+        <Text>HubSpot Status: {wizard.submit.hubspotStatus}</Text>
+      </>
+    )}
+  </>
+)}
 
       <Button onClick={goBack} disabled={backDisabled}>Back</Button>
       <Button onClick={goNext} variant="primary" disabled={nextDisabled}>Next</Button>
