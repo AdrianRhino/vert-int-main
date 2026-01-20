@@ -1,49 +1,54 @@
-exports.main = async (context = {}) => {
-    const params = context.parameters || {};
+const { priceABC } = require("../suppliers/abc");
+const { priceSRS } = require("../suppliers/srs");
+const { priceBEACON } = require("../suppliers/beacon");
 
-    const supplierKey = params.supplierKey || "";
-    const env = params.env || "sandbox";
-    const action = params.action || "";
-    const payload = params.payload || {};
+const CONTEXT_REQS = {
+    ABC: ["branchId", "shipTo"],
+    SRS:["accountId"],
+    BEACON: ["branchId"],
+};
+
+function ok200(body) {
+    return { statusCode: 200, body };
+}
+
+function missingContextReasons(supplierKey, supplierContext) {
+    const reqs = CONTEXT_REQS[supplierKey] || [];
+    const missing = reqs.filter((k) => !String(supplierContext?.[k] || "").trim());
+    return missing.map((k) => `MISSING_${k.toUpperCase()}`);
+}
+
+exports.main = async (context = {}) => {
+    const p = context.parameters || {};
+
+    const supplierKey = String(p.supplierKey || "").trim().toUpperCase();
+    const env = p.env === "prod" ? "prod" : "sandbox";
+    const action = String(p.action || "").trim().toLowerCase();
+    const payload = p.payload || {};
+
+    if (action!== "price") {
+        return ok200({ ok: true, priced: false, reasons: ["UNSUPPORTED_ACTION"] });
+    }
+
+    const lines = Array.isArray(payload.lines) ? payload.lines : [];
+    if (lines.length === 0) {
+        return ok200({ ok: true, priced: false, reasons: ["NO_LINES"]});
+    }
+
+    const supplierContext = payload?.context?.supplierContext || {};
+    const missingReasons = missingContextReasons(supplierKey, supplierContext);
+    if (missingReasons.length > 0) {
+        return ok200({ ok: true, priced: false, reasons: missingReasons });
+    }
 
     try {
-        if (supplierKey === "ABC" && action === "price") {
-            const result = await priceABC({ env, payload });
-            return result.status(200).json(result);
-        }
+        if (supplierKey.toUpperCase() === "ABC") return await priceABC({ env, lines, supplierContext });
+        if (supplierKey.toUpperCase() === "SRS") return await priceSRS({ env, lines, supplierContext });
+        if (supplierKey.toUpperCase() === "BEACON") return await priceBEACON({ env, lines, supplierContext });
 
-        return res.status(200).json({ 
-            ok: true, 
-            priced: false,
-        reasons: ["Call for pricing"],
-     });
+        return ok200({ ok: true, priced: false, reasons: ["UNKNOWN_SUPPLIER"] });
     } catch (error) {
         console.error("supplierProxy exception:", error);
-        return res.status(200).json({
-            ok: false,
-            priced: false,
-            reasons: ["TECHNICAL_FAILURE"],
-        });
+        return ok200({ ok: false, priced: false, reasons: ["TECHNICAL_FAILURE"] , error: error.message || "supplierProxy price failed"});
     }
-
-    async function priceABC({ env, payload}) {
-        const branchId = payload?.branchId;
-        const items = payload?.items;
-
-        if (!branchId) {
-            return { ok: true, priced: false, reasons: ["MISSING_BRANCH"]};
-        }
-        if (!Array.isArray(items) || items.length === 0) {
-            return { ok: true, priced: false, reasons: ["NO_ITEMS"]};
-        }
-
-        // TODO: Implement the actual pricing logic
-        // const response = await fetch(url, { method: "POST", body: JSON.stringify(payload)});
-
-        return { ok: true, priced: false, reasons: ["CALL_FOR_PRICING"]};
-
-        // If it returns with real numbers
-       // return { ok: true, priced: true, reasons: [], pricedLines: [], unpricedLines: []};
-    }
-    
 };

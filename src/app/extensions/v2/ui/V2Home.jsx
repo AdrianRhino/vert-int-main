@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect, useState } from "react";
-import { Text, Select, Input, Button, Divider } from "@hubspot/ui-extensions";
+import { Text, Select, Input, Button, Divider, Heading } from "@hubspot/ui-extensions";
 import { makeReceipt, addStep } from "../contracts/receipt";
 import { makeWizardState } from "../contracts/wizardState";
 import { getMissingFields } from "../contracts/requirements";
@@ -548,8 +548,8 @@ export default function V2Home({ runServerless }) {
                 <Text></Text>
             </React.Fragment>
         ))}
-
-        <Text>Cart</Text>
+        <Divider />
+        <Heading>Cart</Heading>
         {(wizard.lines || []).length === 0 && <Text>(Empty)</Text>}
 
         {(wizard.lines || []).map((line, idx) => (
