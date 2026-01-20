@@ -6,19 +6,44 @@ exports.main = async (context = {}) => {
     const action = params.action || "";
     const payload = params.payload || {};
 
-    // Stub Response
-    return {
-        statusCode: 200,
-        body: {
-            ok: true,
-            supplierKey,
-            env,
-            action,
-            priced: false,
-            reasons: ["CALL_FOR_PRICING"],
-            echo: {
-                lineCount: Array.isArray(payload.lines) ? payload.lines.length : 0
-            }
+    try {
+        if (supplierKey === "ABC" && action === "price") {
+            const result = await priceABC({ env, payload });
+            return result.status(200).json(result);
         }
-    };
+
+        return res.status(200).json({ 
+            ok: true, 
+            priced: false,
+        reasons: ["Call for pricing"],
+     });
+    } catch (error) {
+        console.error("supplierProxy exception:", error);
+        return res.status(200).json({
+            ok: false,
+            priced: false,
+            reasons: ["TECHNICAL_FAILURE"],
+        });
+    }
+
+    async function priceABC({ env, payload}) {
+        const branchId = payload?.branchId;
+        const items = payload?.items;
+
+        if (!branchId) {
+            return { ok: true, priced: false, reasons: ["MISSING_BRANCH"]};
+        }
+        if (!Array.isArray(items) || items.length === 0) {
+            return { ok: true, priced: false, reasons: ["NO_ITEMS"]};
+        }
+
+        // TODO: Implement the actual pricing logic
+        // const response = await fetch(url, { method: "POST", body: JSON.stringify(payload)});
+
+        return { ok: true, priced: false, reasons: ["CALL_FOR_PRICING"]};
+
+        // If it returns with real numbers
+       // return { ok: true, priced: true, reasons: [], pricedLines: [], unpricedLines: []};
+    }
+    
 };
