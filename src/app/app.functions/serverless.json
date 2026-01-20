@@ -13,19 +13,19 @@
       "secrets": []
     },
     "saveDraftToHubspot": {
-      "file": "./extensions/v2/hubspot/saveDraftToHubspot.js",
+      "file": "extensions/v2/hubspot/saveDraftToHubspot.js",
       "secrets": []
     }, 
     "sendOrderToSupplier": {
-      "file": "./extensions/v2/supplier/sendOrderToSupplier.js",
+      "file": "extensions/v2/supplier/sendOrderToSupplier.js",
       "secrets": []
     },
     "generateAndUploadOrderPDF": {
-      "file": "./extensions/v2/supplier/generateAndUploadOrderPDF.js",
+      "file": "extensions/v2/supplier/generateAndUploadOrderPDF.js",
       "secrets": []
     },
     "updateHubspotStatus": {
-      "file": "./extensions/v2/hubspot/updateHubspotStatus.js",
+      "file": "extensions/v2/hubspot/updateHubspotStatus.js",
       "secrets": []
     }
   }
