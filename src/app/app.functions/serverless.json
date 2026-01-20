@@ -17,11 +17,11 @@
       "secrets": []
     }, 
     "sendOrderToSupplier": {
-      "file": "suppliers/config/sendOrderToSupplier.js",
+      "file": "./suppliers/config/sendOrderToSupplier.js",
       "secrets": []
     },
     "generateAndUploadOrderPDF": {
-      "file": "suppliers/config/generateAndUploadOrderPDF.js",
+      "file": "./suppliers/config/generateAndUploadOrderPDF.js",
       "secrets": []
     },
     "updateHubspotStatus": {
