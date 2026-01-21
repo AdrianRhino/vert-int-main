@@ -33,7 +33,7 @@ exports.priceABC = async ({ env, lines, supplierContext }) => {
       items: lines.map((l) => ({
         sku: l.sku,
         qty: l.quantity,
-        uom: l.uom,
+        uom: (l.uom || "EA").toUpperCase(),
       })),
     };
 
@@ -69,11 +69,18 @@ exports.priceABC = async ({ env, lines, supplierContext }) => {
     return ok200({ ok: true, priced: true, reasons: [], data: resp.data });
   } catch (error) {
    
-    return ok200({
-      ok: false,
-      priced: false,
-      reasons: ["TECHNICAL_FAILURE"],
-      error: error?.message || "ABC pricing failed",
-    });
+    // inside catch
+const status = error?.response?.status;
+const data = error?.response?.data;
+const url = error?.config?.url;
+
+console.error("[ABC pricing error]", JSON.stringify({ status, url, data }, null, 2));
+
+return ok200({
+  ok: false,
+  priced: false,
+  reasons: ["TECHNICAL_FAILURE"],
+  error: JSON.stringify({ status, url, data }, null, 2),
+});
   }
 };

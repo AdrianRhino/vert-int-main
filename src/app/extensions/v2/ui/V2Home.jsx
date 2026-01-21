@@ -195,8 +195,6 @@ export default function V2Home({ runServerless }) {
     async function getPricing() {
         if (!runServerless) return;
 
-        console.log("getPricing function called....!!!!!!!");
-
         // basic check: need lines
         if (!wizard.lines || wizard.lines.length === 0) {
             setWizard((prev) => ({
@@ -260,8 +258,6 @@ setWizard(prev => ({
             { name: "RECEIPT_OUTPUT", ok: true, why: "Receipt shown in UI." },
           ]);
         }
-
-       
     }
 
     function buildDraftPayload() {
