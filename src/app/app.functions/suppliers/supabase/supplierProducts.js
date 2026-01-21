@@ -46,7 +46,7 @@ exports.main = async (context = {}) => {
       },
     });
 
-    console.log("supplierProducts resp:", resp.data);
+    console.log("supplierProducts resp:", resp.data.length);
 
     const rows = Array.isArray(resp.data) ? resp.data : [];
    // console.log("supplierProducts rows:", rows);

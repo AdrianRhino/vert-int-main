@@ -195,6 +195,8 @@ export default function V2Home({ runServerless }) {
     async function getPricing() {
         if (!runServerless) return;
 
+        console.log("getPricing function called....!!!!!!!");
+
         // basic check: need lines
         if (!wizard.lines || wizard.lines.length === 0) {
             setWizard((prev) => ({
@@ -205,6 +207,15 @@ export default function V2Home({ runServerless }) {
         }
 
         try {
+
+          console.error("[UI getPricing] about to call supplierProxy", JSON.stringify({
+            supplierKey: wizard.supplierKey,
+            env: wizard.env,
+            action: "price",
+            linesPreview: (wizard.lines || []).slice(0, 2),
+            supplierContext: wizard.context || {},
+          }, null, 2));
+
           const resp = await runServerless({
             name: "supplierProxy",
             parameters: {
@@ -222,14 +233,16 @@ export default function V2Home({ runServerless }) {
         },
         });
      const body = resp?.response?.body || resp?.body || resp;
+     console.error("[UI getPricing] supplierProxy response body", JSON.stringify(body, null, 2));
 
-     const priced = body?.priced === true;
-     const reasons = Array.isArray(body?.reasons) ? body?.reasons : [];
+     const ok = body?.ok === true;
+const priced = body?.priced === true;
+const reasons = Array.isArray(body?.reasons) ? body.reasons : [];
 
-     setWizard((prev) => ({
-        ...prev,
-        pricing: { ok: true,priced, reasons },
-     }));
+setWizard(prev => ({
+  ...prev,
+  pricing: { ok, priced, reasons, error: body?.error || "" },
+}));
 
      setActionSteps([
         { name: "SUPPLIER_PRICING_CALL", ok: true, why: "Called supplierProxy price action." },
