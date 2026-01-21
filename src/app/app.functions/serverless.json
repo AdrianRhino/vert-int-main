@@ -5,12 +5,21 @@
       "secrets": []
     },
     "supplierProducts": {
-      "file": "suppliers/supabase/supplierProducts.js",
+      "file": "./suppliers/supabase/supplierProducts.js",
       "secrets": ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]
     },
     "supplierProxy": {
-      "file": "supplierProxy/supplierProxy.js",
-      "secrets": []
+      "file": "./supplierProxy/supplierProxy.js",
+      "secrets": [
+        "ABCurlSandboxAuth",
+        "ABCurlProdAuth",
+        "ABCurlSandbox",
+        "ABCurlProd",
+        "ABCClient",
+        "ABCClientSecret",
+        "ABCClientSandbox",
+        "ABCClientSecretSandbox"
+      ]
     },
     "saveDraftToHubspot": {
       "file": "./hubspot/saveDraftToHubspot.js",

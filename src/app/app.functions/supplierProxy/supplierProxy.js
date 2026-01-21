@@ -41,6 +41,26 @@ exports.main = async (context = {}) => {
         return ok200({ ok: true, priced: false, reasons: missingReasons });
     }
 
+    console.log("supplierProxy function: " + JSON.stringify(supplierKey, env, lines, supplierContext, null, 2));
+    console.error(
+        "supplierProxy input:",
+        JSON.stringify(
+          {
+            supplierKey,
+            env,
+            action,
+            lineCount: lines.length,
+            supplierContext,
+            providerTypes: {
+              priceABC: typeof priceABC,
+              priceSRS: typeof priceSRS,
+              priceBEACON: typeof priceBEACON,
+            },
+          },
+          null,
+          2
+        )
+      );
     try {
         if (supplierKey.toUpperCase() === "ABC") return await priceABC({ env, lines, supplierContext });
         if (supplierKey.toUpperCase() === "SRS") return await priceSRS({ env, lines, supplierContext });
@@ -48,7 +68,24 @@ exports.main = async (context = {}) => {
 
         return ok200({ ok: true, priced: false, reasons: ["UNKNOWN_SUPPLIER"] });
     } catch (error) {
-        console.error("supplierProxy exception:", error);
-        return ok200({ ok: false, priced: false, reasons: ["TECHNICAL_FAILURE"] , error: error.message || "supplierProxy price failed"});
+        console.error(
+            "supplierProxy exception:",
+            JSON.stringify(
+              {
+                message: error?.message || String(error),
+                name: error?.name,
+                stack: error?.stack,
+              },
+              null,
+              2
+            )
+          );
+        
+          return ok200({
+            ok: false,
+            priced: false,
+            reasons: ["TECHNICAL_FAILURE"],
+            error: error?.message || String(error) || "supplierProxy price failed",
+          });
     }
 };
