@@ -28,9 +28,10 @@ exports.priceABC = async ({ env, lines, supplierContext }) => {
 
   try {
     const payload = {
-      branchId: supplierContext.branchId,
-      shipTo: supplierContext.shipTo,
-      items: lines.map((l) => ({
+      branchNumber: supplierContext.branchId,
+      shipToNumber: supplierContext.shipTo,
+      lines: lines.map((l) => ({
+        id: l.lineId,
         sku: l.sku,
         qty: l.quantity,
         uom: (l.uom || "EA").toUpperCase(),
