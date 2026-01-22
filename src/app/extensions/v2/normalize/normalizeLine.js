@@ -11,6 +11,7 @@ export function normalizeLine(line) {
     if (out.quantity <= 0) out.quantity = 1;
 
     out.uom = cleanText(out.uom).toUpperCase();
+    if (!out.uom) out.uom = "EA";
     out.variantCode = cleanText(out.variantCode);
 
     out.options = safeArray(out.options);

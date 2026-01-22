@@ -15,5 +15,15 @@ export function toNumber(x, defaultValue) {
 
 export function safeArray(x) {
     if (Array.isArray(x)) return x;
+
+    if (typeof x === "string") {
+        try {
+            const parsed = JSON.parse(x);
+            if (Array.isArray(parsed)) return parsed;
+        } catch (error) {
+            console.error("Error parsing array from string:", error);
+        }
+    }
+
     return [];
 }

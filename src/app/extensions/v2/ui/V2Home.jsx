@@ -16,9 +16,9 @@ export default function V2Home({ runServerless }) {
 
   const receipt = useMemo(() => {
     const r = makeReceipt("V2_WIZARD", wizard.env);
-  
+
     addStep(r, "RENDER_PAGE", true, "V2 wizard page rendered successfully.");
-  
+
     addStep(
       r,
       "VALIDATE_STEP_REQUIREMENTS",
@@ -27,7 +27,7 @@ export default function V2Home({ runServerless }) {
         ? "All required fields present."
         : "Missing: " + missing.join(", ")
     );
-  
+
     const unlocked = isProdUnlocked(wizard);
     addStep(
       r,
@@ -41,10 +41,10 @@ export default function V2Home({ runServerless }) {
     for (const step of actionSteps) {
       addStep(r, step.name, step.ok, step.why);
     }
-  
+
     return r;
   }, [wizard, missing, actionSteps]);
-  
+
   useEffect(() => {
     console.log(JSON.stringify(receipt, null, 2));
   }, [receipt]);
@@ -52,11 +52,11 @@ export default function V2Home({ runServerless }) {
   function setField(name, value) {
     setWizard((prev) => {
       const next = { ...prev };
-  
+
       // Invariant: env is always sandbox/prod
       if (name === "env") {
         next.env = value === "prod" ? "prod" : "sandbox";
-  
+
         // If we leave prod, relock it (prevents weird stale unlock state)
         if (next.env !== "prod") {
           next.liveOrder = false;
@@ -64,13 +64,13 @@ export default function V2Home({ runServerless }) {
         }
         return next;
       }
-  
+
       // Invariant: liveOrder is always a real boolean
       if (name === "liveOrder") {
         next.liveOrder = value === true;
         return next;
       }
-  
+
       next[name] = value;
       return next;
     });
@@ -107,7 +107,7 @@ export default function V2Home({ runServerless }) {
     !pricingOk ||
     (wizard.env === "prod" && !prodUnlocked);
 
-    const pricingContextReqs = CAPABILITIES[wizard.supplierKey]?.pricing?.requires || [];
+  const pricingContextReqs = CAPABILITIES[wizard.supplierKey]?.pricing?.requires || [];
 
   function isProdUnlocked(state) {
     if (state.env !== "prod") return true;
@@ -120,308 +120,387 @@ export default function V2Home({ runServerless }) {
     if (!runServerless) return;
 
     setWizard((prev) => ({
-        ...prev,
-        isSearching: true,
-        searchError: "",
-        searchResults: [],
+      ...prev,
+      isSearching: true,
+      searchError: "",
+      searchResults: [],
     }));
 
     try {
-        const resp = await runServerless({
-            name: "supplierProducts",
-            parameters: {
-                supplierKey: wizard.supplierKey,
-                query: wizard.searchText,
-            },
-        });
-
-        const results = 
-            resp?.response?.body?.results || 
-            resp?.body?.results || 
-            [];
-
-            setWizard((prev) => ({
-                ...prev,
-                isSearching: false,
-                searchResults: results,
-            }))
-
-            setActionSteps([{ name: "SUPABASE_LOOKUP", ok: true, why: "Fetched search results." }]);
-        } catch (error) {
-            setWizard((prev) => ({
-                ...prev,
-                isSearching: false,
-                searchError: error.message || "Search failed",
-            }));
-
-            setActionSteps([{ name: "SUPABASE_LOOKUP", ok: false, why: error.message || "Failed to fetch search results." }]);
-        }
-    }
-
-    function getRowTitle(row) {
-        return row.title || row.productName || row.product_name || row.familyName || row.family_name || row.baseProductName || row.base_product_name || row.name || row.description || row.itemdescription || row.item_description || row.marketingDescription || row.marketing_description || row.productDescription || row.product_description || "";
-    }
-    function getRowSku(row) {
-        return row.sku || row.itemnumber || row.itemNumber || row.productCode || "";
-    }
-
-    function addResultToCart(row) {
-        // Ensure row includes supplier for routing
-        const rowWithSupplier = {
-            ...row,
-            supplier: row.supplier || wizard.supplierKey.toLowerCase(),
-            sku: getRowSku(row),
-            title: getRowTitle(row),
-        };
-
-        const line = mapProductToLine(rowWithSupplier);
-
-        setWizard((prev) => ({
-            ...prev,
-            lines: [...(prev.lines || []), line],
-        }));
-
-        setActionSteps([{ name: "NORMALIZE_LINES", ok: true, why: "Mapped product row into canonical line item." }]);
-
-    }
-
-    function removeLineAtIndex(indexToRemove) {
-        setWizard((prev) => ({
-            ...prev,
-            lines: (prev.lines || []).filter((_, idx) => idx !== indexToRemove),
-        }));
-    }
-
-    async function getPricing() {
-        if (!runServerless) return;
-
-        // basic check: need lines
-        if (!wizard.lines || wizard.lines.length === 0) {
-            setWizard((prev) => ({
-                 ...prev,
-                 pricing: { ok: false, priced: false, reasons: ["NO_LINES"]}
-            }))
-            return;
-        }
-
-        try {
-
-          console.error("[UI getPricing] about to call supplierProxy", JSON.stringify({
-            supplierKey: wizard.supplierKey,
-            env: wizard.env,
-            action: "price",
-            linesPreview: (wizard.lines || []).slice(0, 2),
-            supplierContext: wizard.context || {},
-          }, null, 2));
-
-          const resp = await runServerless({
-            name: "supplierProxy",
-            parameters: {
-                supplierKey: wizard.supplierKey,
-                env: wizard.env,
-                action: "price",
-                payload: {
-                    lines: wizard.lines,
-                    context: {
-                        ticketId: wizard.ticketId,
-                        templateId: wizard.templateId,
-                        supplierContext: wizard.context || {},
-                }
-            }
+      const resp = await runServerless({
+        name: "supplierProducts",
+        parameters: {
+          supplierKey: wizard.supplierKey,
+          query: wizard.searchText,
         },
+      });
+
+      const results =
+        resp?.response?.body?.results ||
+        resp?.body?.results ||
+        [];
+
+      setWizard((prev) => ({
+        ...prev,
+        isSearching: false,
+        searchResults: results,
+      }))
+
+      setActionSteps([{ name: "SUPABASE_LOOKUP", ok: true, why: "Fetched search results." }]);
+    } catch (error) {
+      setWizard((prev) => ({
+        ...prev,
+        isSearching: false,
+        searchError: error.message || "Search failed",
+      }));
+
+      setActionSteps([{ name: "SUPABASE_LOOKUP", ok: false, why: error.message || "Failed to fetch search results." }]);
+    }
+  }
+
+  function getRowTitle(row) {
+    return row.title || row.productName || row.product_name || row.familyName || row.family_name || row.baseProductName || row.base_product_name || row.name || row.description || row.itemdescription || row.item_description || row.marketingDescription || row.marketing_description || row.productDescription || row.product_description || "";
+  }
+  function getRowSku(row) {
+    return row.sku || row.itemnumber || row.itemNumber || row.productCode || "";
+  }
+
+  function lineKey(l) {
+    // Merge the same item by supplier
+    return [
+      String(l.supplierKey || "").toUpperCase().trim(),
+      String(l.sku || "").toUpperCase().trim(),
+      String(l.variantCode || 1).toString().trim(),
+    ].join("|");
+  }
+
+  function addResultToCart(row) {
+    // Ensure row includes supplier for routing
+    const rowWithSupplier = {
+      ...row,
+      supplier: row.supplier || wizard.supplierKey.toLowerCase(),
+      sku: getRowSku(row),
+      title: getRowTitle(row),
+    };
+  
+    const line = mapProductToLine(rowWithSupplier); // :contentReference[oaicite:2]{index=2}
+  
+    setWizard((prev) => {
+      const existingLines = prev.lines || [];
+      const k = lineKey(line);
+  
+      const idx = existingLines.findIndex((x) => lineKey(x) === k);
+  
+      // If same SKU already exists, increment quantity instead of adding a new line
+      if (idx >= 0) {
+        const current = existingLines[idx];
+        const nextQty = (Number(current.quantity) || 0) + (Number(line.quantity) || 1);
+  
+        const merged = {
+          ...current,
+          quantity: nextQty,
+          // Keep the best-known display fields
+          title: current.title || line.title,
+          // If existing uom is blank but new one has it, adopt it
+          uom: current.uom || line.uom,
+          // Merge meta shallowly (optional)
+          meta: { ...(current.meta || {}), ...(line.meta || {}) },
+        };
+  
+        const nextLines = [...existingLines];
+        nextLines[idx] = merged;
+  
+        return { ...prev, lines: nextLines };
+      }
+  
+      // Otherwise, append as new line
+      return { ...prev, lines: [...existingLines, line] };
+    });
+  
+    setActionSteps([
+      { name: "NORMALIZE_LINES", ok: true, why: "Added to cart (merged if duplicate SKU)." },
+    ]);
+  }
+
+  function removeLineAtIndex(indexToRemove) {
+    setWizard((prev) => ({
+      ...prev,
+      lines: (prev.lines || []).filter((_, idx) => idx !== indexToRemove),
+    }));
+  }
+
+  async function getPricing() {
+    if (!runServerless) return;
+
+    // basic check: need lines
+    if (!wizard.lines || wizard.lines.length === 0) {
+      setWizard((prev) => ({
+        ...prev,
+        pricing: { ok: false, priced: false, reasons: ["NO_LINES"] }
+      }))
+      return;
+    }
+
+    try {
+
+      console.error("[UI getPricing] about to call supplierProxy", JSON.stringify({
+        supplierKey: wizard.supplierKey,
+        env: wizard.env,
+        action: "price",
+        linesPreview: (wizard.lines || []).slice(0, 2),
+        supplierContext: wizard.context || {},
+      }, null, 2));
+
+      const resp = await runServerless({
+        name: "supplierProxy",
+        parameters: {
+          supplierKey: wizard.supplierKey,
+          env: wizard.env,
+          action: "price",
+          payload: {
+            lines: wizard.lines,
+            context: {
+              ticketId: wizard.ticketId,
+              templateId: wizard.templateId,
+              supplierContext: wizard.context || {},
+            }
+          }
+        },
+      });
+      const body = resp?.response?.body || resp?.body || resp;
+
+      function mergeLineResults(lines, lineResults) {
+        const byLineId = new Map(lineResults.map((x) => [x.lineId, x]));
+        const bySku = new Map(lineResults.map((x) => [x.sku, x]));
+
+        return (lines || []).map((l) => {
+          const hit = byLineId.get(l.lineId) || bySku.get(l.sku);
+
+          if (!hit) {
+            return {
+              ...l,
+              unitPrice: 0,
+              extendedPrice: 0,
+              pricingStatus: "UNPRICED",
+              pricingMessage: "No pricing returned for this line",
+            };
+          }
+
+          const unitPrice = Number(hit.unitPrice || 0) || 0;
+          const qty = Number(l.quantity || 1) || 1;
+
+          return {
+            ...l,
+            unitPrice,
+            extendedPrice: unitPrice * qty,
+            pricingStatus: hit.status || "UNPRICED",
+            pricingMessage: hit.message || "",
+          };
         });
-     const body = resp?.response?.body || resp?.body || resp;
-     console.error("[UI getPricing] supplierProxy response body", JSON.stringify(body, null, 2));
+      }
 
-     const ok = body?.ok === true;
-const priced = body?.priced === true;
-const reasons = Array.isArray(body?.reasons) ? body.reasons : [];
+      console.error("[UI getPricing] supplierProxy response body", JSON.stringify(body, null, 2));
 
-setWizard(prev => ({
-  ...prev,
-  pricing: { ok, priced, reasons, error: body?.error || "" },
-}));
+      const ok = body?.ok === true;
+      const priced = body?.priced === true;
+      const reasons = Array.isArray(body?.reasons) ? body.reasons : [];
 
-     setActionSteps([
+      const lineResults = Array.isArray(body?.lineResults) ? body.lineResults : [];
+      const nextLines = mergeLineResults(wizard.lines, lineResults);
+
+      setWizard(prev => ({
+        ...prev,
+        lines: nextLines,
+        pricing: {
+          ok,
+          priced,
+          reasons,
+          error: body?.error || "",
+          flags: body?.flags || null,
+          data: body?.data || null,
+        },
+      }));
+
+      setActionSteps([
         { name: "SUPPLIER_PRICING_CALL", ok: true, why: "Called supplierProxy price action." },
         { name: "INTERPRET_PRICING", ok: true, why: "Converted response into priced + reasons." },
         { name: "RECEIPT_OUTPUT", ok: true, why: "Receipt shown in UI." }
       ]);
-        } catch (error) {
-          setWizard((prev) => ({
-            ...prev,
-            pricing: { ok: false, priced: false, reasons: ["PRICING_CALL_FAILED"] },
-          }));
-        
-          setActionSteps([
-            { name: "SUPPLIER_PRICING_CALL", ok: false, why: error?.message || "Pricing call failed." },
-            { name: "RECEIPT_OUTPUT", ok: true, why: "Receipt shown in UI." },
-          ]);
-        }
+    } catch (error) {
+      setWizard((prev) => ({
+        ...prev,
+        pricing: { ok: false, priced: false, reasons: ["PRICING_CALL_FAILED"] },
+      }));
+
+      setActionSteps([
+        { name: "SUPPLIER_PRICING_CALL", ok: false, why: error?.message || "Pricing call failed." },
+        { name: "RECEIPT_OUTPUT", ok: true, why: "Receipt shown in UI." },
+      ]);
     }
+  }
 
-    function buildDraftPayload() {
-      return {
-        orderType: wizard.orderType,
-        supplierKey: wizard.supplierKey,
-        env: wizard.env,
-        templateId: wizard.templateId,
-        ticketId: wizard.ticketId,
-        lines: wizard.lines || [],
-        pricing: wizard.pricing || null,
-        hubspot: wizard.hubspot || null,
-        context: wizard.context || {},
-      }
+  function buildDraftPayload() {
+    return {
+      orderType: wizard.orderType,
+      supplierKey: wizard.supplierKey,
+      env: wizard.env,
+      templateId: wizard.templateId,
+      ticketId: wizard.ticketId,
+      lines: wizard.lines || [],
+      pricing: wizard.pricing || null,
+      hubspot: wizard.hubspot || null,
+      context: wizard.context || {},
     }
+  }
 
-    async function saveDraft() {
-      if (!runServerless) return;
+  async function saveDraft() {
+    if (!runServerless) return;
 
-      try {
-        const fullOrder = buildDraftPayload();
+    try {
+      const fullOrder = buildDraftPayload();
 
-        const resp = await runServerless({
-          name: "saveDraftToHubspot",
-          parameters: {
-            dealId: wizard.ticketId,
-            fullOrder,
-          },
-        });
+      const resp = await runServerless({
+        name: "saveDraftToHubspot",
+        parameters: {
+          dealId: wizard.ticketId,
+          fullOrder,
+        },
+      });
 
-        const body = resp?.response?.body || resp?.body || resp;
-
-        setWizard((prev) => ({
-          ...prev,
-          hubspot: {
-            ok: body?.ok === true,
-            orderId: body?.orderId || "",
-            status: body?.ok ? "DRAFT_SAVED" : "FAILED",
-          }
-        }));
-
-        setActionSteps([
-          { name: "HUBSPOT_DRAFT_SAVE", ok: body?.ok === true, why: body?.ok ? "Draft saved to Hubspot." : "Failed to save draft." },
-          { name: "RECEIPT_OUTPUT", ok: true, why: "Receipt shown in UI." }
-        ]);
-      } catch (error) {
-        setWizard((prev) => ({
-          ...prev,
-          hubspot: {
-            ok: false,
-            orderId: "",
-            status: "FAILED",
-          }
-        }));
-
-        setActionSteps([
-          { name: "HUBSPOT_DRAFT_SAVE", ok: false, why: error?.message || "Failed to save draft." },
-          { name: "RECEIPT_OUTPUT", ok: true, why: "Receipt shown in UI." }
-        ]);
-      }
-    }
-
-    async function submitOrder() {
-      if (!runServerless) return;
-
-      // hard gate (extra safety)
-      if (!wizard.hubspot?.ok) return;
-      if (!(wizard.pricing && wizard.pricing.ok === true)) return;
-      if (wizard.env === "prod" && !isProdUnlocked(wizard)) return;
-
-      setActionSteps([{ name: "SUBMIT_START", ok: true, why: "Starting order submission." }]);
+      const body = resp?.response?.body || resp?.body || resp;
 
       setWizard((prev) => ({
         ...prev,
-        isSubmitting: true,
-        submitError: "",
-        submit: null,
-      }))
+        hubspot: {
+          ok: body?.ok === true,
+          orderId: body?.orderId || "",
+          status: body?.ok ? "DRAFT_SAVED" : "FAILED",
+        }
+      }));
 
-      const fullOrder = buildDraftPayload();
+      setActionSteps([
+        { name: "HUBSPOT_DRAFT_SAVE", ok: body?.ok === true, why: body?.ok ? "Draft saved to Hubspot." : "Failed to save draft." },
+        { name: "RECEIPT_OUTPUT", ok: true, why: "Receipt shown in UI." }
+      ]);
+    } catch (error) {
+      setWizard((prev) => ({
+        ...prev,
+        hubspot: {
+          ok: false,
+          orderId: "",
+          status: "FAILED",
+        }
+      }));
 
-      try {
-        const r1 = await runServerless({
-          name: "sendOrderToSupplier",
-          parameters: {
-            supplierKey: wizard.supplierKey,
-            env: wizard.env,
-            fullOrder,
-          },
-        });
-        
-        const b1 = r1?.response?.body || r1?.body || r1;
-        if (!b1?.ok) throw new Error(b1?.error || "Failed to send order to supplier.");
-
-        setActionSteps([
-          { name: "SUBMIT_START", ok: true, why: "Submit started." },
-          { name: "SUPPLIER_ORDER_CALL", ok: true, why: "Supplier order created: " + b1.supplierOrderId },
-        ])
-
-        // 2) Generate/upload PDF
-        const r2 = await runServerless({
-          name: "generateAndUploadOrderPDF",
-          parameters: {
-            env: wizard.env,
-            dealId: wizard.ticketId,
-            supplierOrderId: b1.supplierOrderId,
-          },
-        });
-
-        const b2 = r2?.response?.body || r2?.body || r2;
-        if (!b2?.ok) throw new Error(b2?.error || "PDF generation/upload failed.");
-
-        setActionSteps([
-          { name: "SUBMIT_START", ok: true, why: "Submit started." },
-          { name: "SUPPLIER_ORDER_CALL", ok: true, why: "Supplier order created: " + b1.supplierOrderId },
-          { name: "PDF_GENERATE_UPLOAD", ok: true, why: "PDF created: " + b2.pdfUrl },
-        ])
-
-        // 3) Update Hubspot status
-        const r3 = await runServerless({
-          name: "updateHubspotStatus",
-          parameters: {
-            dealId: wizard.ticketId,
-            orderId: wizard.hubspot?.orderId,
-            status: "SUBMITTED",
-          }
-        });
-
-        const b3 = r3?.response?.body || r3?.body || r3;
-        if (!b3?.ok) throw new Error(b3?.error || "HubSpot update failed");
-
-        // Final State
-        setWizard((prev) => ({
-          ...prev,
-          isSubmitting: false,
-          submit: {
-            ok: true,
-            supplierOrderId: b1.supplierOrderId,
-            pdfUrl: b2.pdfUrl,
-            hubspotStatus: b3.hubspotStatus,
-          },
-        }));
-
-        setActionSteps([
-          { name: "SUBMIT_START", ok: true, why: "Submit started." },
-          { name: "SUPPLIER_ORDER_CALL", ok: true, why: "Supplier order created: " + b1.supplierOrderId },
-          { name: "PDF_GENERATE_UPLOAD", ok: true, why: "PDF created: " + b2.pdfUrl },
-          { name: "HUBSPOT_STATUS_UPDATE", ok: true, why: "HubSpot status updated to SUBMITTED." },
-          { name: "SUBMIT_DONE", ok: true, why: "Submit complete."}
-        ]);
-      } catch (error) {
-        setWizard((prev) => ({
-          ...prev,
-          isSubmitting: false,
-          submitError: error?.message || "Submit failed.",
-          submit: { ok: false },
-        }));
-
-        setActionSteps([
-          { name: "SUBMIT_START", ok: true, why: "Submit started." },
-          { name: "SUBMIT_DONE", ok: false, why: error?.message || "Submit failed." },
-        ]);
-      }
+      setActionSteps([
+        { name: "HUBSPOT_DRAFT_SAVE", ok: false, why: error?.message || "Failed to save draft." },
+        { name: "RECEIPT_OUTPUT", ok: true, why: "Receipt shown in UI." }
+      ]);
     }
+  }
+
+  async function submitOrder() {
+    if (!runServerless) return;
+
+    // hard gate (extra safety)
+    if (!wizard.hubspot?.ok) return;
+    if (!(wizard.pricing && wizard.pricing.ok === true)) return;
+    if (wizard.env === "prod" && !isProdUnlocked(wizard)) return;
+
+    setActionSteps([{ name: "SUBMIT_START", ok: true, why: "Starting order submission." }]);
+
+    setWizard((prev) => ({
+      ...prev,
+      isSubmitting: true,
+      submitError: "",
+      submit: null,
+    }))
+
+    const fullOrder = buildDraftPayload();
+
+    try {
+      const r1 = await runServerless({
+        name: "sendOrderToSupplier",
+        parameters: {
+          supplierKey: wizard.supplierKey,
+          env: wizard.env,
+          fullOrder,
+        },
+      });
+
+      const b1 = r1?.response?.body || r1?.body || r1;
+      if (!b1?.ok) throw new Error(b1?.error || "Failed to send order to supplier.");
+
+      setActionSteps([
+        { name: "SUBMIT_START", ok: true, why: "Submit started." },
+        { name: "SUPPLIER_ORDER_CALL", ok: true, why: "Supplier order created: " + b1.supplierOrderId },
+      ])
+
+      // 2) Generate/upload PDF
+      const r2 = await runServerless({
+        name: "generateAndUploadOrderPDF",
+        parameters: {
+          env: wizard.env,
+          dealId: wizard.ticketId,
+          supplierOrderId: b1.supplierOrderId,
+        },
+      });
+
+      const b2 = r2?.response?.body || r2?.body || r2;
+      if (!b2?.ok) throw new Error(b2?.error || "PDF generation/upload failed.");
+
+      setActionSteps([
+        { name: "SUBMIT_START", ok: true, why: "Submit started." },
+        { name: "SUPPLIER_ORDER_CALL", ok: true, why: "Supplier order created: " + b1.supplierOrderId },
+        { name: "PDF_GENERATE_UPLOAD", ok: true, why: "PDF created: " + b2.pdfUrl },
+      ])
+
+      // 3) Update Hubspot status
+      const r3 = await runServerless({
+        name: "updateHubspotStatus",
+        parameters: {
+          dealId: wizard.ticketId,
+          orderId: wizard.hubspot?.orderId,
+          status: "SUBMITTED",
+        }
+      });
+
+      const b3 = r3?.response?.body || r3?.body || r3;
+      if (!b3?.ok) throw new Error(b3?.error || "HubSpot update failed");
+
+      // Final State
+      setWizard((prev) => ({
+        ...prev,
+        isSubmitting: false,
+        submit: {
+          ok: true,
+          supplierOrderId: b1.supplierOrderId,
+          pdfUrl: b2.pdfUrl,
+          hubspotStatus: b3.hubspotStatus,
+        },
+      }));
+
+      setActionSteps([
+        { name: "SUBMIT_START", ok: true, why: "Submit started." },
+        { name: "SUPPLIER_ORDER_CALL", ok: true, why: "Supplier order created: " + b1.supplierOrderId },
+        { name: "PDF_GENERATE_UPLOAD", ok: true, why: "PDF created: " + b2.pdfUrl },
+        { name: "HUBSPOT_STATUS_UPDATE", ok: true, why: "HubSpot status updated to SUBMITTED." },
+        { name: "SUBMIT_DONE", ok: true, why: "Submit complete." }
+      ]);
+    } catch (error) {
+      setWizard((prev) => ({
+        ...prev,
+        isSubmitting: false,
+        submitError: error?.message || "Submit failed.",
+        submit: { ok: false },
+      }));
+
+      setActionSteps([
+        { name: "SUBMIT_START", ok: true, why: "Submit started." },
+        { name: "SUBMIT_DONE", ok: false, why: error?.message || "Submit failed." },
+      ]);
+    }
+  }
 
   return (
     <>
@@ -444,38 +523,38 @@ setWizard(prev => ({
 
       {wizard.step === 2 && (
         <>
-        <Text>Environment</Text>
-        <Select
+          <Text>Environment</Text>
+          <Select
             label="Environment"
             options={[
-                { label: "Sandbox", value: "sandbox" },
-                { label: "Production", value: "prod" },
+              { label: "Sandbox", value: "sandbox" },
+              { label: "Production", value: "prod" },
             ]}
             value={wizard.env}
             onChange={(value) => setField("env", value)}
-        />
-        <Text></Text>
-            {wizard.env === "prod" && (
-                <>
-                <Text>⚠️ Production is locked by default.</Text>
-                <Select
-                    label="I understand this is live"
-                    options={[
-                        { label: "Yes", value: true },
-                        { label: "No", value: false },
-                    ]}
-                    value={wizard.liveOrder}
-                    onChange={(value) => setField("liveOrder", value)}
-                />
-                <Text>Confirmation Text</Text>
-                <Input
-                    label={`Type 'PLACE LIVE ORDER' to unlock`}
-                    value={wizard.confirmationText}
-                    onChange={(value) => setField("confirmationText", value)}
-                />
-                <Divider />
-                </>
-            )}
+          />
+          <Text></Text>
+          {wizard.env === "prod" && (
+            <>
+              <Text>⚠️ Production is locked by default.</Text>
+              <Select
+                label="I understand this is live"
+                options={[
+                  { label: "Yes", value: true },
+                  { label: "No", value: false },
+                ]}
+                value={wizard.liveOrder}
+                onChange={(value) => setField("liveOrder", value)}
+              />
+              <Text>Confirmation Text</Text>
+              <Input
+                label={`Type 'PLACE LIVE ORDER' to unlock`}
+                value={wizard.confirmationText}
+                onChange={(value) => setField("confirmationText", value)}
+              />
+              <Divider />
+            </>
+          )}
           <Text>Step 2 - Choose Supplier</Text>
           <Select
             label="Supplier"
@@ -490,26 +569,26 @@ setWizard(prev => ({
 
           <Text>Supplier Context</Text>
           {pricingContextReqs.includes("branchId") && (
-            <Input 
-            label="Branch ID" 
-            value={wizard.context.branchId || ""} 
-            onChange={(value) => setField("context", { ...wizard.context, branchId: value })} 
+            <Input
+              label="Branch ID"
+              value={wizard.context.branchId || ""}
+              onChange={(value) => setField("context", { ...wizard.context, branchId: value })}
             />
           )}
 
           {pricingContextReqs.includes("shipTo") && (
             <Input
-            label="Ship To ID"
-            value={wizard.context.shipTo || ""}
-            onChange={(value) => setField("context", { ...wizard.context, shipTo: value })}
+              label="Ship To ID"
+              value={wizard.context.shipTo || ""}
+              onChange={(value) => setField("context", { ...wizard.context, shipTo: value })}
             />
           )}
 
           {pricingContextReqs.includes("accountId") && (
             <Input
-            label="Account ID"
-            value={wizard.context.accountId || ""}
-            onChange={(value) => setField("context", { ...wizard.context, accountId: value })}
+              label="Account ID"
+              value={wizard.context.accountId || ""}
+              onChange={(value) => setField("context", { ...wizard.context, accountId: value })}
             />
           )}
 
@@ -537,94 +616,108 @@ setWizard(prev => ({
 
       {wizard.step === 3 && (
         <> <Text>Step 3 - Add Products</Text>
-        <Input
-      label="Search"
-      value={wizard.searchText}
-      onChange={(value) => setField("searchText", value)}
-    />
+          <Input
+            label="Search"
+            value={wizard.searchText}
+            onChange={(value) => setField("searchText", value)}
+          />
 
-    <Button onClick={searchProducts} disabled={wizard.isSearching}>
-      {wizard.isSearching ? "Searching..." : "Search"}
-    </Button>
+          <Button onClick={searchProducts} disabled={wizard.isSearching}>
+            {wizard.isSearching ? "Searching..." : "Search"}
+          </Button>
 
-    {wizard.searchError && <Text>Search error: {wizard.searchError}</Text>}
+          {wizard.searchError && <Text>Search error: {wizard.searchError}</Text>}
 
-    <Text>Results</Text>
-        {(wizard.searchResults || []).map((row, idx) => (
+          <Text>Results</Text>
+          {(wizard.searchResults || []).map((row, idx) => (
             <React.Fragment key={idx}>
-                <Text>{getRowTitle(row)} - {getRowSku(row)}</Text>
-                <Button onClick={() => addResultToCart(row)}>Add</Button>
-                <Text></Text>
+              <Text>{getRowTitle(row)} - {getRowSku(row)}</Text>
+              <Button onClick={() => addResultToCart(row)}>Add</Button>
+              <Text></Text>
             </React.Fragment>
-        ))}
-        <Divider />
-        <Heading>Cart</Heading>
-        {(wizard.lines || []).length === 0 && <Text>(Empty)</Text>}
+          ))}
+          <Divider />
+          <Heading>Cart</Heading>
+          {(wizard.lines || []).length === 0 && <Text>(Empty)</Text>}
 
-        {(wizard.lines || []).map((line, idx) => (
+          {(wizard.lines || []).map((line, idx) => (
             <React.Fragment key={idx}>
-            <Text>
+              <Text>
                 {line.title} - {line.sku} ({line.quantity} {line.uom})
-            </Text>
-            <Button onClick={() => removeLineAtIndex(idx)}>Remove</Button>
+              </Text>
+              <Button onClick={() => removeLineAtIndex(idx)}>Remove</Button>
             </React.Fragment>
-        ))}
+          ))}
         </>
       )}
 
       {wizard.step === 4 && (
         <>
-        <Text>Step 4 - Pricing</Text>
-        <Text>Lines</Text>
-        {(wizard.lines || []).map((line,idx) => (
-            <Text key={idx}>{line.title} - {line.sku} ({line.quantity} {line.uom})</Text>
-        ))}
+          <Text>Step 4 - Pricing</Text>
+          <Text>Lines</Text>
+          {(wizard.lines || []).map((line, idx) => (
+            <Text key={idx}>
+              {line.title} - {line.sku} ({line.quantity} {line.uom})
+              {" | $"}
+              {Number(line.unitPrice || 0).toFixed(2)}
+              {" | "}
+              {line.pricingStatus}
+              {line.pricingMessage ? ` | ${line.pricingMessage}` : ""}
+            </Text>
+          ))}
 
-        <Button onClick={getPricing}>Get Pricing</Button>
+          <Button onClick={getPricing}>Get Pricing</Button>
+          <Button onClick={() => console.log(JSON.stringify(wizard.lines, null, 2))}>Log Pricing</Button>
 
-        {wizard.pricing && (
+          {wizard.pricing && (
             <>
-            <Text>Pricing Status: {wizard.pricing.priced ? "Priced" : "Not Priced"}</Text>
-            <Text>Reasons: {wizard.pricing.reasons?.join(", ")}</Text>
+              <Text>Pricing Status: {wizard.pricing.priced ? "Priced" : "Not Priced"}</Text>
+              <Text>Reasons: {wizard.pricing.reasons?.join(", ")}</Text>
             </>
-        )}
+          )}
+
+          {wizard.pricing?.flags?.callForPricingSkus?.length > 0 && (
+            <Text>
+              Manual pricing required for: {wizard.pricing.flags.callForPricingSkus.join(", ")}
+            </Text>
+          )}
         </>
       )}
 
       {wizard.step === 5 && (
         <>
-        <Text>Step 5 - Save Draft</Text>
-        <Button onClick={saveDraft} variant="primary">Save as Draft</Button>
-        <Text>Hubspot Status: {wizard.hubspot.status || "(none)"} | orderId: {wizard.hubspot?.orderId || "(none)"}</Text>
+          <Text>Step 5 - Save Draft</Text>
+          <Button onClick={saveDraft} variant="primary">Save as Draft</Button>
+          <Text>Hubspot Status: {wizard.hubspot.status || "(none)"} | orderId: {wizard.hubspot?.orderId || "(none)"}</Text>
         </>
       )}
 
-{wizard.step === 6 && (
-  <>
-    <Text>Step 6 - Submit</Text>
+      {wizard.step === 6 && (
+        <>
+          <Text>Step 6 - Submit</Text>
 
-    {wizard.env === "prod" && !prodUnlocked && (
-      <Text>Prod is locked. Unlock required to submit.</Text>
-    )}
+          {wizard.env === "prod" && !prodUnlocked && (
+            <Text>Prod is locked. Unlock required to submit.</Text>
+          )}
 
-    {!pricingOk && <Text>Pricing must succeed before submit.</Text>}
-    {!wizard.hubspot?.ok && <Text>Draft must be saved before submit.</Text>}
+          {!pricingOk && <Text>Pricing must succeed before submit.</Text>}
+          {!wizard.hubspot?.ok && <Text>Draft must be saved before submit.</Text>}
 
-    <Button onClick={submitOrder} variant="primary" disabled={submitDisabled || wizard.isSubmitting}>
-      {wizard.isSubmitting ? "Submitting..." : "Submit Order"}
-    </Button>
+          <Button onClick={submitOrder} variant="primary" disabled={submitDisabled || wizard.isSubmitting}>
+            {wizard.isSubmitting ? "Submitting..." : "Submit Order"}
+          </Button>
 
-    {wizard.submitError && <Text>Submit error: {wizard.submitError}</Text>}
+          {wizard.submitError && <Text>Submit error: {wizard.submitError}</Text>}
 
-    {wizard.submit?.ok && (
-      <>
-        <Text>Supplier Order ID: {wizard.submit.supplierOrderId}</Text>
-        <Text>PDF URL: {wizard.submit.pdfUrl}</Text>
-        <Text>HubSpot Status: {wizard.submit.hubspotStatus}</Text>
-      </>
-    )}
-  </>
-)}
+          {wizard.submit?.ok && (
+            <>
+              <Text>Supplier Order ID: {wizard.submit.supplierOrderId}</Text>
+              <Text>PDF URL: {wizard.submit.pdfUrl}</Text>
+              <Text>HubSpot Status: {wizard.submit.hubspotStatus}</Text>
+            </>
+          )}
+        </>
+      )}
 
       <Button onClick={goBack} disabled={backDisabled}>Back</Button>
       <Button onClick={goNext} variant="primary" disabled={nextDisabled}>Next</Button>

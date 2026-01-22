@@ -7,6 +7,12 @@ export function makeEmptyLine() {
         uom: "",             // "EA", "1G", "5G", "PAL", etc
         variantCode: "",     // optional
         options: [],         // list of selectable variants (for UI)
-        meta: {}             // anything extra, optional
+        meta: {},             // anything extra, optional
+
+        // Pricing Placeholder Fields: 
+        unitPrice: 0,
+        extendedPrice: 0,
+        pricingStatus: "UNPRICED", // PRICED | CALL_FOR_PRICING | NOT_FOUND | UNPRICED
+        pricingMessage: "",
     };
 }
