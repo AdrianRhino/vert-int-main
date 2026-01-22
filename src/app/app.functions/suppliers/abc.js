@@ -30,10 +30,12 @@ exports.priceABC = async ({ env, lines, supplierContext }) => {
     const payload = {
       branchNumber: supplierContext.branchId,
       shipToNumber: supplierContext.shipTo,
+      requestId: `Pricing-${Date.now()}`,
+      purpose: "estimating",
       lines: lines.map((l) => ({
-        id: l.lineId,
-        sku: l.sku,
-        qty: l.quantity,
+        id: l.lineId || String(Math.random()),
+        itemNumber: l.sku,
+        quantity: l.quantity,
         uom: (l.uom || "EA").toUpperCase(),
       })),
     };
@@ -76,7 +78,7 @@ const data = error?.response?.data;
 const url = error?.config?.url;
 
 console.error("[ABC pricing error]", JSON.stringify({ status, url, data }, null, 2));
-
+console.log("This is the Payload: ", JSON.stringify(payload, null, 2));
 return ok200({
   ok: false,
   priced: false,
